@@ -1,0 +1,12 @@
+amex:
+    un: <username>
+    p: <your pw here (or supply via commandline)>
+    notify_new: true
+    notify_removed: true
+    notify_eligible_expiry: true
+    notify_enrolled_expiry: true
+    notify_eligible_expiry_days: 3 
+    notify_enrolled_expiry_days: 7
+    
+ifttt:
+    apiKey: <your api key here> 
