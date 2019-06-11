@@ -11,6 +11,8 @@
 
 5. Email support - If you want to receive email updates from amex-offer-monitor, you need an email account to send the mail from. I recommend a free/throwaway mail.com account, but you can use others. Update config.yml with your inbox address, and your sender's email, password, smtp\_port, and smtp\_server. (smtp settings configured for mail.com)
 
+6. Automation - the script is intended to be run once per day or so. You can do this with cron on linux or taskschd.msc on windows, so you just get a daily digest of your amex offer status.  
+
 ## Configuration Options
 
 * notify\_new: Email will contain all new offers detected since the last time the script ran
@@ -24,3 +26,8 @@
 
 * notify\_all\_enrolled : Receive a summary about all enrolled offers on all cards
 * notify\_all\_eligible : Receive a summary about all eligible offers on all cards (probably huge!)
+
+
+## Other notes
+
+Occasionally on login amex will throw an extra security page prompting for the last 4 of your SSN. Currently experimenting with a solution to workaround this, but it may not happen often enough to big deal unless you are hammering them running the script over and over. 
