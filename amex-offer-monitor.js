@@ -34,6 +34,7 @@ var debug_fake_data = false; //skips the amex lookup, loads a fake table instead
 var debug_max_cards = -1; //if >= 0, only look at N cards, instead of all cards by default
 var debug_nomail = false; //skip the email
 
+var nocred_mode = false;
 process.argv.forEach((arg, i, argv) => {
     switch (arg) {
         case '--username':
@@ -54,6 +55,11 @@ process.argv.forEach((arg, i, argv) => {
         case '--maxcards':
             debug_max_cards = argv[i+1];
             break;
+        case '--nocred': //use this if you don't want to provide your credentials into 
+                         //the script, but instead want to type them directly into the
+                         //electron window
+            nocred_mode = true;
+            break;
     }
 });
 
@@ -68,21 +74,24 @@ const logger = new (winston.Logger)({
     ]
 });
 
+var au = null;
+var ap = null;
 
-let au = arg_username ? arg_username : config.amex.un? config.amex.un : null;
-let ap = arg_password ? arg_password : config.amex.p ? config.amex.p : null;
-
-if(!au) {
-    let msg = "Must specify a username in config (config.amex.un) or with --username arg";
-    console.error(msg);
-    logger.error(msg);
-    process.exit(1);
-}
-if(!ap) {
-    let msg = "Must specify a password in config (config.amex.p) or with --password arg";
-    console.error(msg);
-    logger.error(msg);
-    process.exit(1);
+if(!nocred_mode) {
+    au = arg_username ? arg_username : config.amex.un? config.amex.un : null;
+    ap = arg_password ? arg_password : config.amex.p ? config.amex.p : null;
+    if(!au) {
+        let msg = "Must specify a username in config (config.amex.un) or with --username arg";
+        console.error(msg);
+        logger.error(msg);
+        process.exit(1);
+    }
+    if(!ap) {
+        let msg = "Must specify a password in config (config.amex.p) or with --password arg";
+        console.error(msg);
+        logger.error(msg);
+        process.exit(1);
+    }
 }
 
 logger.info("Starting execution of amex-offer-monitor");
@@ -102,37 +111,46 @@ const amexLogin = async nightmare => {
   console.log('Logging into amex.com');
   logger.info('Logging into amex.com');
 
-// Go to initial start page, navigate to Detail search
   try {
-    await nightmare
-      .goto(START)
-      .wait('input[name="UserID"]')
-      .type('input[name="UserID"]', au)
-      .wait('input[name="Password"]')
-      .type('input[name="Password"]', ap)
-      .click('input[id="lilo_formSubmit"]');
-
     let logged_in = false;
-    for(let i =0; i< 30; i++) {
-      await nightmare.wait(1000);
-      if(await nightmare.exists('input[id="onl-social"]')) {
-         if(amex.config.l4s) {
-             await nightmare
-                 .type('input[id="' + amex.config.l4s + '"]')
-                 .click('button[type="submit"]')
-                 .wait(2000);
-         } else {
-            await nightmare.end();
-            throw "Amex asked for last 4 ssn to continue, but you did not provide it in config file, can't continue";
-         }
-      }
-      if(await nightmare.exists('a[href="/offers/eligible"]')) {
-          await nightmare
-              .click('a[href="/offers/eligible"]')
-              .wait(2000);
-          logged_in = true;
-      }
-      if(logged_in) { break; }
+    if(nocred_mode) {
+        await nightmare
+        .goto(START)
+        .wait(10000)
+        .wait('a[href="/offers/eligible"]')
+        .click('a[href="/offers/eligible"]')
+        .wait(2000);
+        logged_in = true;
+    } else {
+        await nightmare
+          .goto(START)
+          .wait('input[name="UserID"]')
+          .type('input[name="UserID"]', au)
+          .wait('input[name="Password"]')
+          .type('input[name="Password"]', ap)
+          .click('input[id="lilo_formSubmit"]');
+
+        for(let i =0; i< 30; i++) {
+          await nightmare.wait(1000);
+          if(await nightmare.exists('input[id="onl-social"]')) {
+             if(amex.config.l4s) {
+                 await nightmare
+                     .type('input[id="' + amex.config.l4s + '"]')
+                     .click('button[type="submit"]')
+                     .wait(2000);
+             } else {
+                await nightmare.end();
+                throw "Amex asked for last 4 ssn to continue, but you did not provide it in config file, can't continue";
+             }
+          }
+          if(await nightmare.exists('a[href="/offers/eligible"]')) {
+              await nightmare
+                  .click('a[href="/offers/eligible"]')
+                  .wait(2000);
+              logged_in = true;
+          }
+          if(logged_in) { break; }
+        }
     }
     if(logged_in) { 
         console.log("Logged in and ready");
@@ -196,7 +214,6 @@ const getOffers = async nightmare => {
   console.log('Now getting offers');
   logger.info('Now getting offers');
 
-// Go to initial start page, navigate to Detail search
   try {
     //eligible offers
     const eligible_result = await nightmare
@@ -499,6 +516,7 @@ const asyncMain = async nightmare => {
         let enable = mode == 0 ? config.amex.notify_all_enrolled : config.amex.notify_all_eligible;
         let htmlmsg = "<h2> Summary of all current " + type + " offers:</h2><table>"; 
         if(enable) {
+            send_message = true;
             for(var card in newdata) {
                 let cardoffers = newdata[card];
                 for(let i=0; i< cardoffers.length; i++) {
@@ -519,7 +537,13 @@ const asyncMain = async nightmare => {
     notify_message += "</body></html>";
 
     try {
-       await send_email(notify_message);
+    
+       if(send_message) {
+           await send_email(notify_message);
+       } else {
+          console.log("Script ran successfully but didn't find any reason to send an email, so nothing sent");
+          logger.info("Script ran successfully but didn't find any reason to send an email, so nothing sent");
+       }
        if(!debug_fake_data) {
          fs.writeFileSync(path.resolve(__dirname,"./amexoffers-data.json"), JSON.stringify(newdata, null, 2));
        }
