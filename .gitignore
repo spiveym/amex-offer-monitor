@@ -69,3 +69,4 @@ config.yml
 *.html
 
 amexoffers-data.json
+amex-offer-monitor.bat

@@ -110,16 +110,43 @@ const amexLogin = async nightmare => {
       .type('input[name="UserID"]', au)
       .wait('input[name="Password"]')
       .type('input[name="Password"]', ap)
-      .click('input[id="lilo_formSubmit"]')
-      .wait('a[href="/offers/eligible"]')
-      .click('a[href="/offers/eligible"]')
-      .wait(2000);
+      .click('input[id="lilo_formSubmit"]');
 
-    console.log("Logged in and ready");
-    logger.info("Logged in and ready");
+    let logged_in = false;
+    for(let i =0; i< 30; i++) {
+      await nightmare.wait(1000);
+      if(await nightmare.exists('input[id="onl-social"]')) {
+         if(amex.config.l4s) {
+             await nightmare
+                 .type('input[id="' + amex.config.l4s + '"]')
+                 .click('button[type="submit"]')
+                 .wait(2000);
+         } else {
+            await nightmare.end();
+            throw "Amex asked for last 4 ssn to continue, but you did not provide it in config file, can't continue";
+         }
+      }
+      if(await nightmare.exists('a[href="/offers/eligible"]')) {
+          await nightmare
+              .click('a[href="/offers/eligible"]')
+              .wait(2000);
+          logged_in = true;
+      }
+      if(logged_in) { break; }
+    }
+    if(logged_in) { 
+        console.log("Logged in and ready");
+        logger.info("Logged in and ready");
+        return true;
+    } else {
+        console.log("Login Failed");
+        logger.info("Login Failed");
+        process.exit(1);
+    }
   } catch(e) {
     console.error(e);
     logger.error(e);
+    process.exit(1);
   }
 }  
 
@@ -268,13 +295,13 @@ const asyncMain = async nightmare => {
         newdata = JSON.parse(fs.readFileSync(path.resolve(__dirname,"amexoffers-fakedata.json")));
     } else {
         try {
-        await amexLogin(nightmare);
-        for (let i=0; i< cardcount; i++) {
-            let card = await chooseCard(nightmare,i);
-            let offers = await getOffers(nightmare);
-            newdata[card] = offers;
-            if(debug_max_cards >= 0) { cardcount = debug_max_cards; }
-        }
+            await amexLogin(nightmare);
+            for (let i=0; i< cardcount; i++) {
+                let card = await chooseCard(nightmare,i);
+                let offers = await getOffers(nightmare);
+                newdata[card] = offers;
+                if(debug_max_cards >= 0) { cardcount = debug_max_cards; }
+            }
         } catch(e) {
             console.error(e);
             logger.error(e);
