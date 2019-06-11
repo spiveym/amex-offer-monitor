@@ -8,6 +8,7 @@ const path = require('path');
 const os = require('os');
 const moment = require('moment-timezone');
 const iftttmaker = require('iftttmaker');
+const nodemailer = require('nodemailer');
 const Nightmare = require('nightmare');
 const sprintf = require('sprintf-js').sprintf;
 
@@ -229,44 +230,39 @@ const getOffers = async nightmare => {
 }  
 
 
-const ifttt_notify = async (message) => {
+const send_email = async message => {
 
-    // send a notification
-    if (config.ifttt && loglevel !== "debug") {
-        let request = {
-            event: 'amex-offer-update',
-            values: {
-                value1: message
-            }
-        };
-        var success = false;
-        for (let i=1; i< 4; i++) {
-            console.log("Sending HTML notification through IFTTT - attempt " + i);
-            logger.info("Sending HTML notification through IFTTT - attempt " + i);
-            await iftttmaker(config.ifttt.apiKey).send(request, function (error) {
-                if (error) {
-                    console.error(error);
-                    logger.error(error);
-                } else {
-                    success = true;
-                    console.log(sprintf("Notification sent: %s", message));
-                    logger.info(sprintf("Notification sent: %s", message));
-                }
-            });
-            if(success) break;
-        }
-    } else {
-        console.log(message);
-        logger.info(message);
+  // create reusable transporter object using the default SMTP transport
+  let transporter = nodemailer.createTransport({
+    host: config.email.from_smtp_server,
+    port: config.email.from_smtp_port,
+    secure: false, // true for 465, false for other ports
+    auth: {
+      user: config.email.from_address,
+      pass: config.email.from_p
     }
-};
+  });
 
+  // send mail with defined transport object
+  let info = await transporter.sendMail({
+    from: '"Amex Offer Monitor" <' + config.email.from_address + '>', // sender address
+    to: config.email.to, // list of receivers
+    subject: "Amex Offer Update", // Subject line
+    text: "", // plain text body
+    html: message // html body
+  });
+
+  console.log("Message sent: %s", info.messageId);
+}
 
 
 const asyncMain = async nightmare => {
 
     const fs = require('fs')
-    var olddata = JSON.parse(fs.readFileSync(path.resolve(__dirname,"amexoffers-data.json")));
+    var olddata = {};
+    if(fs.existsSync(path.resolve(__dirname,"amexoffers-data.json"))) {
+        olddata = JSON.parse(fs.readFileSync(path.resolve(__dirname,"amexoffers-data.json")));
+    }
 
     var newdata = {};
     if(debug_fake_data) {
@@ -472,24 +468,19 @@ const asyncMain = async nightmare => {
             }
         }
     }
+    notify_message += "</body></html>";
 
-    if(send_message && !debug_nomail) {
-        try {
-            ifttt_notify(notify_message);
-        } catch(e) { 
-            console.error(e); 
-            logger.error(e); 
-        }
+    try {
+       await send_email(notify_message);
+       if(!debug_fake_data) {
+         fs.writeFileSync(path.resolve(__dirname,"./amexoffers-data.json"), JSON.stringify(newdata, null, 2));
+       }
+    } catch(e) { 
+        console.error(e);
+        logger.error(e);
     }
 
-    if(!debug_fake_data) {
-        try {
-            fs.writeFileSync(path.resolve(__dirname,"./amexoffers-data.json"), JSON.stringify(newdata, null, 2));
-        } catch(e) {
-            console.error(e);
-            logger.error(e);
-        }
-    }
+    fs.writeFileSync(path.resolve(__dirname, "amexoffers_update.html"), notify_message);
 
 }
 

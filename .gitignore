@@ -62,3 +62,8 @@ typings/
 
 #my config file
 config.yml
+#fake data
+*fakedata*
+
+#results
+*.html
