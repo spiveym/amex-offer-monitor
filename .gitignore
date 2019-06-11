@@ -67,3 +67,5 @@ config.yml
 
 #results
 *.html
+
+amexoffers-data.json

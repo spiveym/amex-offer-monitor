@@ -7,7 +7,6 @@ const winston = require('winston');
 const path = require('path');
 const os = require('os');
 const moment = require('moment-timezone');
-const iftttmaker = require('iftttmaker');
 const nodemailer = require('nodemailer');
 const Nightmare = require('nightmare');
 const sprintf = require('sprintf-js').sprintf;
@@ -353,8 +352,6 @@ const asyncMain = async nightmare => {
         }
     }
 
-
-
     console.log("Cards Added: \n");
     console.dir(cardsadded);
     console.log("Cards Removed: \n");
@@ -468,6 +465,30 @@ const asyncMain = async nightmare => {
             }
         }
     }
+
+
+    for(let mode = 0; mode < 2; mode++) {
+        let type = mode == 0 ? "enrolled" : "eligible";
+        let enable = mode == 0 ? config.amex.notify_all_enrolled : config.amex.notify_all_eligible;
+        let htmlmsg = "<h2> Summary of all current " + type + " offers:</h2><table>"; 
+        if(enable) {
+            for(var card in newdata) {
+                let cardoffers = newdata[card];
+                for(let i=0; i< cardoffers.length; i++) {
+                    let offer = cardoffers[i][0].split("\n");
+                    let expy = cardoffers[i][1];
+                    let offerstatus = cardoffers[i][2];
+                    if(offerstatus == type) {
+                       htmlmsg += "<tr><td>" + offer[0] + "<td>" + offer[1] + "<td>" + expy + "<td>" + card + "</tr>\n"; 
+                    } 
+                }
+            }
+            htmlmsg += "</table>\n";
+            notify_message += htmlmsg;
+        }
+    }
+
+
     notify_message += "</body></html>";
 
     try {
