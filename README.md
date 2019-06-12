@@ -4,7 +4,7 @@
 
 1. Unpack the code to a folder .../amex-offer-monitor
 
-2. Install the Node.js application with 'npm-install' (Install node.js on your system first if you don't have it.)
+2. Install the Node.js application by running 'npm install' from the directory (Install node.js on your system first if you don't have it.)
 3. Rename config.yml.example to config.yml
 
 4. Amex credentials - either update your username & password in the config file, or if you don't want to leave them in plaintext on your harddrive, supply them some other way via --username <username> --password <password> on each run of the script
@@ -12,6 +12,8 @@
 5. Email support - If you want to receive email updates from amex-offer-monitor, you need an email account to send the mail from. I recommend a free/throwaway mail.com account, but you can use others. Update config.yml with your inbox address, and your sender's email, password, smtp\_port, and smtp\_server. (smtp settings configured for mail.com)
 
 6. Automation - the script is intended to be run once per day or so. You can do this with cron on linux or taskschd.msc on windows, so you just get a daily digest of your amex offer status.  
+
+7. To launch the script, open a command window or powershell, and from the script directory run "node amex-offer-monitor.js"
 
 ## Configuration Options
 
