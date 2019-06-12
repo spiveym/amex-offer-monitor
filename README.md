@@ -4,7 +4,7 @@
 
 1. Unpack the code to a folder .../amex-offer-monitor
 
-2. Install the Node.js application with 'npm-install' (Install node.js on your system first if you don't have it.)
+2. Install the Node.js application by running 'npm install' from the directory (Install node.js on your system first if you don't have it.)
 3. Rename config.yml.example to config.yml
 
 4. Amex credentials - either update your username & password in the config file, or if you don't want to leave them in plaintext on your harddrive, supply them some other way via --username <username> --password <password> on each run of the script
