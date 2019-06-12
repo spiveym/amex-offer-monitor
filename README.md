@@ -13,6 +13,8 @@
 
 6. Automation - the script is intended to be run once per day or so. You can do this with cron on linux or taskschd.msc on windows, so you just get a daily digest of your amex offer status.  
 
+7. To launch the script, open a command window or powershell, and from the script directory run "node amex-offer-monitor.js"
+
 ## Configuration Options
 
 * notify\_new: Email will contain all new offers detected since the last time the script ran
