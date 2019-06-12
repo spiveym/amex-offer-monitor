@@ -269,6 +269,7 @@ const getOffers = async nightmare => {
   } catch(e) {
     console.error(e);
     logger.error(e);
+    return [];
   }
 }  
 
@@ -287,10 +288,11 @@ const send_email = async message => {
   });
 
   // send mail with defined transport object
+  let timestamp = moment().format("MMM Do, h:mm a");
   let info = await transporter.sendMail({
     from: '"Amex Offer Monitor" <' + config.email.from_address + '>', // sender address
     to: config.email.to, // list of receivers
-    subject: "Amex Offer Update", // Subject line
+    subject: "Amex Offer Update: " + timestamp, // Subject line
     text: "", // plain text body
     html: message // html body
   });
@@ -314,10 +316,11 @@ const asyncMain = async nightmare => {
         try {
             await amexLogin(nightmare);
             for (let i=0; i< cardcount; i++) {
+                if(debug_max_cards >= 0) { cardcount = debug_max_cards; }
                 let card = await chooseCard(nightmare,i);
+                if(card.includes('Canceled')) { continue; }
                 let offers = await getOffers(nightmare);
                 newdata[card] = offers;
-                if(debug_max_cards >= 0) { cardcount = debug_max_cards; }
             }
         } catch(e) {
             console.error(e);
