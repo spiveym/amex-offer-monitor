@@ -1,4 +1,7 @@
 'use strict';
+///////////////////////////////////////////////////////////////////////////////
+// Dependencies
+///////////////////////////////////////////////////////////////////////////////
 
 const async = require('async');
 const yaml = require('js-yaml');
@@ -11,30 +14,33 @@ const nodemailer = require('nodemailer');
 const Nightmare = require('nightmare');
 const sprintf = require('sprintf-js').sprintf;
 
-let configFile;
-let config;
+///////////////////////////////////////////////////////////////////////////////
+// Variable Initialization
+///////////////////////////////////////////////////////////////////////////////
 
-try {
-    config = yaml.safeLoad(fs.readFileSync(path.resolve(__dirname,'config.yml'), 'utf8'))
-} catch (e) {
-    console.log(e);
-    process.exit(-1)
-}
+const START = "https://online.americanexpress.com/myca/logon/us/action/LogonHandler?request_type=LogonHandler&Face=en_US&DestPage=https%3A%2F%2Fonline.americanexpress.com%2Fmyca%2Faccountsummary%2Fus%2Faccounthome%3Frequest_type%3Dauthreg_acctAccountSummary%26sorted_index%3D0%26inav%3Dmenu_myacct_acctsum";
 
-let logfile = path.resolve(__dirname, 'amex-offer-monitor.log');
-let loglevel = 'info';
-var cardcount = 1; //this will be updated later
-
-
+var config;
 var arg_username;
 var arg_password;
+var cardcount = 1; //this will be updated later
+var nocred_mode = false;
+var loglevel = 'info';
+var configfile = path.resolve(__dirname,'config.yml');
+var logfile = path.resolve(__dirname, 'amex-offer-monitor.log');
+var historyfile = path.resolve(__dirname, 'amexoffers-data.json');
+var fakedatafile = path.resolve(__dirname, 'amexoffers-fakedata.json');
+var resultfile = path.resolve(__dirname, 'amexoffers-result.html');
 
 //debug vars
 var debug_fake_data = false; //skips the amex lookup, loads a fake table instead to not pound their server
 var debug_max_cards = -1; //if >= 0, only look at N cards, instead of all cards by default
 var debug_nomail = false; //skip the email
 
-var nocred_mode = false;
+///////////////////////////////////////////////////////////////////////////////
+// Command-line processing
+///////////////////////////////////////////////////////////////////////////////
+
 process.argv.forEach((arg, i, argv) => {
     switch (arg) {
         case '--username':
@@ -60,8 +66,21 @@ process.argv.forEach((arg, i, argv) => {
                          //electron window
             nocred_mode = true;
             break;
+        case '--config':
+            configfile = argv[i+1];
+            break;
     }
 });
+
+///////////////////////////////////////////////////////////////////////////////
+// Configuration File Processing
+///////////////////////////////////////////////////////////////////////////////
+
+config = yaml.safeLoad(fs.readFileSync(configfile, 'utf8'))
+
+///////////////////////////////////////////////////////////////////////////////
+// Options final resolve
+///////////////////////////////////////////////////////////////////////////////
 
 const logger = new (winston.Logger)({
     transports: [
@@ -73,6 +92,10 @@ const logger = new (winston.Logger)({
         })
     ]
 });
+
+if(config.amex.historyfile) {
+    historyfile = path.resolve(__dirname, config.amex.historyfile);
+}
 
 var au = null;
 var ap = null;
@@ -94,18 +117,17 @@ if(!nocred_mode) {
     }
 }
 
-logger.info("Starting execution of amex-offer-monitor");
-
-const START = "https://online.americanexpress.com/myca/logon/us/action/LogonHandler?request_type=LogonHandler&Face=en_US&DestPage=https%3A%2F%2Fonline.americanexpress.com%2Fmyca%2Faccountsummary%2Fus%2Faccounthome%3Frequest_type%3Dauthreg_acctAccountSummary%26sorted_index%3D0%26inav%3Dmenu_myacct_acctsum";
-
 const nightmare = new Nightmare({ show: true });
-
       nightmare.on('console', (log, msg) => {
          console.log(msg)
       });
       nightmare.on('logger', (info, msg) => {
          logger.info(msg)
       });
+
+///////////////////////////////////////////////////////////////////////////////
+// Support Functions
+///////////////////////////////////////////////////////////////////////////////
 
 const amexLogin = async nightmare => {
   console.log('Logging into amex.com');
@@ -289,10 +311,11 @@ const send_email = async message => {
 
   // send mail with defined transport object
   let timestamp = moment().format("MMM Do, h:mm a");
+  let emailsubject = (config.email.subject ? config.email.subject : "Amex Offer Update") + " : " + timestamp;
   let info = await transporter.sendMail({
     from: '"Amex Offer Monitor" <' + config.email.from_address + '>', // sender address
     to: config.email.to, // list of receivers
-    subject: "Amex Offer Update: " + timestamp, // Subject line
+    subject: emailsubject,
     text: "", // plain text body
     html: message // html body
   });
@@ -301,17 +324,66 @@ const send_email = async message => {
 }
 
 
+const printHtmlTable = data => {
+
+    console.debug("printHtmlTable: \n");
+    console.debug(data);
+    logger.debug("printHtmlTable: \n");
+    logger.debug(data);
+    let alloffers = {};
+    for(var card in data) {
+        if(Array.isArray(data[card])) {
+            for(var i = 0; i< data[card].length; i++) {
+                let offerraw = data[card][i][0];
+                let offerexpiry = data[card][i][1];
+                let offerkey = offerraw + offerexpiry;
+                if(offerkey in alloffers) {
+                    alloffers[offerkey].cards.push(card);
+                } else {
+                    let offerobj = {};
+                    offerobj.deal = "";
+                    offerobj.merchant = "";
+                    if(offerraw.includes("\n")) {
+                        [offerobj.deal, offerobj.merchant] = offerraw.split("\n");
+                    } else {
+                        offerobj.deal = offerraw; 
+                    }
+                    offerobj.expiry = offerexpiry;
+                    offerobj.cards = [card];
+                    alloffers[offerkey] = offerobj;
+                }
+            }
+        }
+    }
+
+    let html = "<table border='1'>";
+    for(var offerkey in alloffers) {
+        html += "<tr>";
+        html += "<td>" + alloffers[offerkey].deal;
+        html += "<td>" + alloffers[offerkey].merchant;
+        html += "<td>" + alloffers[offerkey].expiry;
+        html += "<td>" + alloffers[offerkey].cards.join("<br>");
+        html += "</tr>\n";
+    }
+    html += "</table>";
+
+    console.debug("END printHtmlTable\n");
+    logger.debug("END printHtmlTable\n");
+    return html;
+}
+
+
 const asyncMain = async nightmare => {
 
     const fs = require('fs')
     var olddata = {};
-    if(fs.existsSync(path.resolve(__dirname,"amexoffers-data.json"))) {
-        olddata = JSON.parse(fs.readFileSync(path.resolve(__dirname,"amexoffers-data.json")));
+    if(fs.existsSync(historyfile)) {
+        olddata = JSON.parse(fs.readFileSync(historyfile));
     }
 
     var newdata = {};
     if(debug_fake_data) {
-        newdata = JSON.parse(fs.readFileSync(path.resolve(__dirname,"amexoffers-fakedata.json")));
+        newdata = JSON.parse(fs.readFileSync(fakedatafile));
     } else {
         try {
             await amexLogin(nightmare);
@@ -437,20 +509,16 @@ const asyncMain = async nightmare => {
         let header = mode == 0 ? "New Offers Found" : "Old Offers Removed";
         let enable = mode == 0 ? config.amex.notify_new : config.amex.notify_removed;
         let offers = mode == 0 ? addedoffers : removedoffers;
-        let htmlmsg = "<h2>" + header + "</h2><table>";
+        let htmlmsg = "<h2>" + header + "</h2>";
         let any_offers_match = false;
         if(enable) {
             for(var key in offers) {
-                if(offers[key].length > 0) {
+                if(Array.isArray(offers[key]) && offers[key].length > 0) {
                     send_message = true;
                     any_offers_match = true;
-                    for(var i = 0; i<offers[key].length; i++) {
-                        let offer = offers[key][i][0].split("\n");
-                        htmlmsg += "<tr><td>"+offer[0]+"<td>"+offer[1]+"<td>"+ offers[key][i][1] + "<td>" + key + "</tr>";
-                    }
                 }
             }
-            htmlmsg += "</table><br><br>";
+            htmlmsg += printHtmlTable(offers);
             if(any_offers_match) {
                 notify_message += htmlmsg;
             }
@@ -465,47 +533,45 @@ const asyncMain = async nightmare => {
             //console.debug("Checking for " + type + " expirations\n");
             let days_config = mode == 0 ? config.amex.notify_enrolled_expiry_days : config.amex.notify_eligible_expiry_days;
             let htmlmsg = "<h2> " + type + " Offers Expiring Soon:</h2><table>";
+            let tempdata = {};
             var expiring_array = new Array(days_config+1);
             for(let i =0; i< days_config+1; i++) {
                 expiring_array[i] = [];
             }
 
             for(var card in newdata) {
-                for(let i=0; i<newdata[card].length; i++) {
-                    //console.debug("Expiry type: " + newdata[card][i][2] + "\n");
-                    if(newdata[card][i][2] == type) {
-                        let expiry_string = newdata[card][i][1];
-                        var myRe = new RegExp('Expires in (\\d) days');
-                        var regexResult = myRe.exec(expiry_string);
-                        //console.dir(regexResult);
-                        var days_left = -1;
-                        if(regexResult) {
-                            //console.debug("regex #1 match");
-                            var days_left = regexResult[1]; 
-                        }
-                        myRe = new RegExp('Expires tomorrow');
-                        regexResult = myRe.exec(expiry_string);
-                        //console.dir(regexResult);
-                        if(regexResult) {
-                            //console.debug("regex #2 match");
-                            var days_left = 1;
-                        }
-                        //console.debug("Expiry: \n" + card + "\n" + expiry_string + "\n" + "days_left: " + days_left);
-                        if(days_left >= 0 && days_left <= days_config) {
-                            let offer = newdata[card][i][0].split("\n");
-                            expiring_array[days_left].push("<tr><td>" + newdata[card][i][1] + "<td>" + offer[0] + "<td>" + offer[1] + "<td>" + card + "</tr>");
+                tempdata[card] = [];
+                for(let d = 0; d< days_config+1; d++) {
+                    for(let i=0; i<newdata[card].length; i++) {
+                        //console.debug("Expiry type: " + newdata[card][i][2] + "\n");
+                        if(newdata[card][i][2] == type) {
+                            let expiry_string = newdata[card][i][1];
+                            var myRe = new RegExp('Expires in (\\d) days');
+                            var regexResult = myRe.exec(expiry_string);
+                            //console.dir(regexResult);
+                            var days_left = -1;
+                            if(regexResult) {
+                                //console.debug("regex #1 match");
+                                var days_left = regexResult[1]; 
+                            }
+                            myRe = new RegExp('Expires tomorrow');
+                            regexResult = myRe.exec(expiry_string);
+                            //console.dir(regexResult);
+                            if(regexResult) {
+                                //console.debug("regex #2 match");
+                                var days_left = 1;
+                            }
+                            //console.debug("Expiry: \n" + card + "\n" + expiry_string + "\n" + "days_left: " + days_left);
+                            if(days_left == d) {
+                                any_expiring = true;
+                                tempdata[card].push(newdata[card][i]);
+                            }
                         }
                     }
                 }
             }
 
-            for (let d = 0; d < days_config+1; d++) {
-                for (let i =0 ; i < expiring_array[d].length; i++) {
-                    any_expiring = true;
-                    htmlmsg += expiring_array[d][i];
-                }
-            } 
-            htmlmsg += "</table><br><br>";
+            htmlmsg += printHtmlTable(tempdata);
             if(any_expiring) {
                 send_message = true;
                 notify_message += htmlmsg;
@@ -518,21 +584,23 @@ const asyncMain = async nightmare => {
         let type = mode == 0 ? "enrolled" : "eligible";
         let enable = mode == 0 ? config.amex.notify_all_enrolled : config.amex.notify_all_eligible;
         let htmlmsg = "<h2> Summary of all current " + type + " offers:</h2><table>"; 
+        let any_offers = false;
         if(enable) {
-            send_message = true;
+            let tempdata = {};
             for(var card in newdata) {
+                tempdata[card] = [];
                 let cardoffers = newdata[card];
                 for(let i=0; i< cardoffers.length; i++) {
-                    let offer = cardoffers[i][0].split("\n");
-                    let expy = cardoffers[i][1];
                     let offerstatus = cardoffers[i][2];
                     if(offerstatus == type) {
-                       htmlmsg += "<tr><td>" + offer[0] + "<td>" + offer[1] + "<td>" + expy + "<td>" + card + "</tr>\n"; 
+                        send_message = true;
+                        any_offers = true;
+                        tempdata[card].push(cardoffers[i]);
                     } 
                 }
             }
-            htmlmsg += "</table>\n";
-            notify_message += htmlmsg;
+            htmlmsg += printHtmlTable(tempdata);
+            notify_message += any_offers ? htmlmsg : "";
         }
     }
 
@@ -540,25 +608,27 @@ const asyncMain = async nightmare => {
     notify_message += "</body></html>";
 
     try {
-    
-       if(send_message) {
-           await send_email(notify_message);
-       } else {
-          console.log("Script ran successfully but didn't find any reason to send an email, so nothing sent");
-          logger.info("Script ran successfully but didn't find any reason to send an email, so nothing sent");
+       if(!debug_nomail) { 
+           if(send_message) {
+               await send_email(notify_message);
+           } else {
+              console.log("Script ran successfully but didn't find any reason to send an email, so nothing sent");
+              logger.info("Script ran successfully but didn't find any reason to send an email, so nothing sent");
+           }
        }
        if(!debug_fake_data) {
-         fs.writeFileSync(path.resolve(__dirname,"./amexoffers-data.json"), JSON.stringify(newdata, null, 2));
+         fs.writeFileSync(historyfile, JSON.stringify(newdata, null, 2));
        }
     } catch(e) { 
         console.error(e);
         logger.error(e);
     }
 
-    fs.writeFileSync(path.resolve(__dirname, "amexoffers_update.html"), notify_message);
+    fs.writeFileSync(resultfile, notify_message);
 
 }
 
 ////////////////// MAIN THREAD ////////////////////////////
 
+logger.info("Starting execution of amex-offer-monitor");
 asyncMain(nightmare);

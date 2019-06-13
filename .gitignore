@@ -61,12 +61,12 @@ typings/
 .next
 
 #my config file
-config.yml
+config.*yml
 #fake data
 *fakedata*
 
 #results
 *.html
 
-amexoffers-data.json
+amexoffers-*.json
 amex-offer-monitor.bat
