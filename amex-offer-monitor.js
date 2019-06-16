@@ -556,12 +556,14 @@ const asyncMain = async nightmare => {
                             }
                             myRe = new RegExp('Expires tomorrow');
                             regexResult = myRe.exec(expiry_string);
-                            //console.dir(regexResult);
                             if(regexResult) {
-                                //console.debug("regex #2 match");
                                 var days_left = 1;
                             }
-                            //console.debug("Expiry: \n" + card + "\n" + expiry_string + "\n" + "days_left: " + days_left);
+                            myRe = new RegExp('Expires today');
+                            regexResult = myRe.exec(expiry_string);
+                            if(regexResult) {
+                                var days_left = 0;
+                            }
                             if(days_left == d) {
                                 any_expiring = true;
                                 tempdata[card].push(newdata[card][i]);
