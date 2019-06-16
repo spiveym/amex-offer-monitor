@@ -8,7 +8,7 @@ amex:
     notify_eligible_expiry_days: 3 
     notify_enrolled_expiry_days: 7
     notify_all_eligible: false
-    notify_all_enrollled: false
+    notify_all_enrolled: false
 
 email:
     to: <your_real_email@foo.com> 
