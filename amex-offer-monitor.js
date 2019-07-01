@@ -31,6 +31,7 @@ var logfile = path.resolve(__dirname, 'amex-offer-monitor.log');
 var historyfile = path.resolve(__dirname, 'amexoffers-data.json');
 var fakedatafile = path.resolve(__dirname, 'amexoffers-fakedata.json');
 var resultfile = path.resolve(__dirname, 'amexoffers-result.html');
+var leaveopen = false;
 
 //debug vars
 var debug_fake_data = false; //skips the amex lookup, loads a fake table instead to not pound their server
@@ -68,6 +69,9 @@ process.argv.forEach((arg, i, argv) => {
             break;
         case '--config':
             configfile = argv[i+1];
+            break;
+        case '--leaveopen':
+            leaveopen = true;
             break;
     }
 });
@@ -373,6 +377,36 @@ const printHtmlTable = data => {
 }
 
 
+const printSummaryTable = data => {
+
+    console.debug("printSummaryTable: \n");
+    console.debug(data);
+    logger.debug("printSummaryTable: \n");
+    logger.debug(data);
+    let html = "<table border='1'>";
+    html += "<tr><td>Card<td># Eligible<td># Enrolled</tr>";
+    for(var card in data) {
+        html += "<tr>";
+        html += "<td>" + card;
+        let count_eligible = 0;
+        let count_enrolled = 0;
+        if(Array.isArray(data[card])) {
+            for(var i = 0; i< data[card].length; i++) {
+                if(data[card][i][2] == 'eligible') { count_eligible++; }
+                if(data[card][i][2] == 'enrolled') { count_enrolled++; }
+            }
+        }
+        html += "<td>" + count_eligible + "<td>" + count_enrolled + "</tr>";
+    }
+    html += "</table>";
+
+    console.debug("END printSummaryTable\n");
+    logger.debug("END printSummaryTable\n");
+    return html;
+
+}
+
+
 const asyncMain = async nightmare => {
 
     const fs = require('fs')
@@ -399,8 +433,11 @@ const asyncMain = async nightmare => {
             logger.error(e);
         }
     }
+
+    if(!leaveopen) {
     await nightmare.end(() => "nightmare ended")
     .then((value) => console.log(value));
+    }
 
     console.log("Done with all Electron Execution. Data collected: \n");
     console.dir(newdata);
@@ -581,6 +618,10 @@ const asyncMain = async nightmare => {
         }
     }
 
+    if(config.amex.notify_summary_table) {
+        notify_message += "<h2> Count of all offers for cards:</h2><table>"; 
+        notify_message += printSummaryTable(newdata);
+    }
 
     for(let mode = 0; mode < 2; mode++) {
         let type = mode == 0 ? "enrolled" : "eligible";
@@ -605,6 +646,7 @@ const asyncMain = async nightmare => {
             notify_message += any_offers ? htmlmsg : "";
         }
     }
+
 
 
     notify_message += "</body></html>";
