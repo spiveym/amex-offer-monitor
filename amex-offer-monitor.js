@@ -32,6 +32,8 @@ var historyfile = path.resolve(__dirname, 'amexoffers-data.json');
 var fakedatafile = path.resolve(__dirname, 'amexoffers-fakedata.json');
 var resultfile = path.resolve(__dirname, 'amexoffers-result.html');
 var leaveopen = false;
+var slowmo = true;
+var slowmo_factor = 1;
 
 //debug vars
 var debug_fake_data = false; //skips the amex lookup, loads a fake table instead to not pound their server
@@ -132,6 +134,19 @@ const nightmare = new Nightmare({ show: true });
 ///////////////////////////////////////////////////////////////////////////////
 // Support Functions
 ///////////////////////////////////////////////////////////////////////////////
+//
+const getRandomWait = () => {
+  if(slowmo) {
+    var min = Math.ceil(10000*slowmo_factor);
+    var max = Math.floor(30000*slowmo_factor);
+    var wait = Math.floor(Math.random() * (max - min)) + min; //The maximum is exclusive and the minimum is inclusive
+    var wait_seconds = wait/1000;
+    console.log('Sleeping for ' + wait_seconds + ' seconds for slowmo');
+    return wait;
+  } else {
+    return 0;
+  }
+}
 
 const amexLogin = async nightmare => {
   console.log('Logging into amex.com');
@@ -170,9 +185,9 @@ const amexLogin = async nightmare => {
              }
           }
           if(await nightmare.exists('a[href="/offers/eligible"]')) {
-              await nightmare
-                  .click('a[href="/offers/eligible"]')
-                  .wait(2000);
+              //await nightmare
+              //    .click('a[href="/offers/eligible"]')
+              //    .wait(2000);
               logged_in = true;
           }
           if(logged_in) { break; }
@@ -181,6 +196,7 @@ const amexLogin = async nightmare => {
     if(logged_in) { 
         console.log("Logged in and ready");
         logger.info("Logged in and ready");
+        await nightmare.wait(getRandomWait());
         return true;
     } else {
         console.log("Login Failed");
@@ -193,6 +209,14 @@ const amexLogin = async nightmare => {
     process.exit(1);
   }
 }  
+
+const gotoMain = async (nightmare) => {
+
+    await nightmare.click('a[href="/dashboard?inav=MYCA_Home"]').
+        wait(2000);
+    await nightmare.wait(getRandomWait());
+
+}
 
 const chooseCard = async (nightmare, cardId) => {
 
@@ -210,9 +234,12 @@ const chooseCard = async (nightmare, cardId) => {
       console.log("Ready = " + ready);
     }
 
+    //if there's more than 4 cards in the switcher list, expand the list to view them all in the switcher
+    await nightmare.wait(getRandomWait());
     const viewall = await nightmare.exists('a[title="View All"]');
     if(viewall) {
         await nightmare.click('a[title="View All"]').wait(500);
+        await nightmare.wait(getRandomWait());
     }
 
       let result = await nightmare
@@ -230,6 +257,15 @@ const chooseCard = async (nightmare, cardId) => {
       logger.debug(JSON.stringify(result, null, 2));
       cardcount = result[0];
       await nightmare.wait(1000);
+
+      //if the switcher is still open, try to close it
+      if(await nightmare.exists('div[id="accounts"]')) {
+         console.debug("switcher is still open, attempting to close it");
+         await nightmare
+          .click('button[class*="axp-account-switcher"]')
+          .wait(1000);
+      }
+
       console.log("Done with chooseCard " + cardId);
       logger.info("Done with chooseCard " + cardId);
       return result[1];
@@ -239,6 +275,10 @@ const chooseCard = async (nightmare, cardId) => {
 const getOffers = async nightmare => {
   console.log('Now getting offers');
   logger.info('Now getting offers');
+
+  await nightmare.wait('a[href="/offers"]')
+                 .click('a[href="/offers"]');
+  await nightmare.wait(getRandomWait());
 
   try {
     //eligible offers
@@ -257,6 +297,7 @@ const getOffers = async nightmare => {
       console.dir(eligible_result);
       logger.debug(eligible_result);
       await nightmare.wait(2000);
+      await nightmare.wait(getRandomWait());
 
       if(eligible_result[0].length != eligible_result[1].length) {
         throw "found a different number of offers than expiration dates"; 
@@ -282,6 +323,7 @@ const getOffers = async nightmare => {
       console.dir(enrolled_result);
       console.debug(enrolled_result);
       await nightmare.wait(2000);
+      await nightmare.wait(getRandomWait());
 
       if(enrolled_result[0].length != enrolled_result[1].length) {
         throw "found a different number of offers than expiration dates"; 
@@ -427,6 +469,7 @@ const asyncMain = async nightmare => {
                 if(card.includes('Canceled')) { continue; }
                 let offers = await getOffers(nightmare);
                 newdata[card] = offers;
+                await gotoMain(nightmare);
             }
         } catch(e) {
             console.error(e);
