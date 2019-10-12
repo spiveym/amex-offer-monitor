@@ -174,11 +174,13 @@ const amexLogin = async nightmare => {
         for(let i =0; i< 30; i++) {
           await nightmare.wait(1000);
           if(await nightmare.exists('input[id="onl-social"]')) {
-             if(amex.config.l4s) {
+             await nightmare.wait(5000);
+             if(config.amex.l4s) {
                  await nightmare
-                     .type('input[id="' + amex.config.l4s + '"]')
-                     .click('button[type="submit"]')
-                     .wait(2000);
+                     .type('input[id="onl-social"]', config.amex.l4s)
+                     .wait(1000)
+                     .click('button[title="Click here to confirm the security information you entered"]')
+                     .wait(5000);
              } else {
                 await nightmare.end();
                 throw "Amex asked for last 4 ssn to continue, but you did not provide it in config file, can't continue";
