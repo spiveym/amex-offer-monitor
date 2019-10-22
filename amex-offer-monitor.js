@@ -167,8 +167,14 @@ const amexLogin = async nightmare => {
           .goto(START)
           .wait('input[name="UserID"]')
           .type('input[name="UserID"]', au)
+          .wait(4000)
           .wait('input[name="Password"]')
           .type('input[name="Password"]', ap)
+          .wait(7000)
+          .click('input[name="UserID"]')
+          .wait(2000)
+          .click('input[name="Password"]')
+          .wait(3000)
           .click('input[id="lilo_formSubmit"]');
 
         for(let i =0; i< 30; i++) {
