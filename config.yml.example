@@ -13,12 +13,14 @@ amex:
     notify_offer_limit_warning: true
     notify_advertisements: true
 
+## Uncomment this block to enable offer filtering.
 #    filter_offers:
 #        - hugo boss
 #        - jo malone
 #        - hair care
 #        - pinterest
 
+## Uncomment this block to enable advertisement filtering.
 #    filter_advertisements: 
 #        - shoprunner
 #        - refer your friend
