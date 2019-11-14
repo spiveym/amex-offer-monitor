@@ -29,6 +29,10 @@
 * notify\_all\_enrolled : Receive a summary about all enrolled offers on all cards
 * notify\_all\_eligible : Receive a summary about all eligible offers on all cards (probably huge!)
 
+* notify\_offer\_limit\_warning : Print a warning message at the top of the email for any card which has hit the max of 100 eligible offers. This means some offers may be hidden, and user needs to add offers until the eligible number drops below 100, to ensure there aren't any hidden offers. 
+
+* notify\_advertisements : Print a list in the email of all "advertisements" which are populated in the offer section. These are advertisements, usually from Amex, which aren't considered traditional "Buy X get Y" amex offers. Things like upgrade offers, referral offers, 0% offers, etc may appear here. Also has a lot of less useful things like ads for shoprunner, credit monitoring, etc. Printed in a separate list at the end of the email.
+
 
 ## Other notes
 
