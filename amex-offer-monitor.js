@@ -450,15 +450,33 @@ const printHtmlTable = data => {
     }
 
     let html = "<table border='1'>";
+    var filter_regex;
+    if(config.amex.filter_offers) {
+        filter_regex = new RegExp(config.amex.filter_offers.join("|"), "i");
+    }
+    var filter_count = 0;
     for(var offerkey in alloffers) {
+        var skip = false;
+        if(config.amex.filter_offers) {
+            if(filter_regex.test(alloffers[offerkey].deal) ||
+               filter_regex.test(alloffers[offerkey].merchant)) {
+                skip = true;
+                filter_count++;
+            } 
+        }
+        if(!skip) {
         html += "<tr>";
         html += "<td>" + alloffers[offerkey].deal;
         html += "<td>" + alloffers[offerkey].merchant;
         html += "<td>" + alloffers[offerkey].expiry;
         html += "<td>" + alloffers[offerkey].cards.join("<br>");
         html += "</tr>\n";
+        }
     }
     html += "</table>";
+    if(filter_count > 0) {
+    html += "<i>Filtered " + filter_count + " hidden offers because they matched your filter list.</i><br>"
+    }
 
     console.debug("END printHtmlTable\n");
     logger.debug("END printHtmlTable\n");
@@ -512,13 +530,13 @@ const asyncMain = async nightmare => {
         try {
             await amexLogin(nightmare);
             for (let i=0; i< cardcount; i++) {
-                if(debug_max_cards >= 0) { cardcount = debug_max_cards; }
                 let card = await chooseCard(nightmare,i);
                 if(card.includes('Canceled')) { continue; }
                 let [offers, ads_onecard] = await getOffers(nightmare, card);
                 newdata[card] = offers;
                 adsdata[card] = ads_onecard;
                 await gotoMain(nightmare);
+                if(debug_max_cards >= 0) { cardcount = debug_max_cards; }
             }
         } catch(e) {
             console.error(e);
@@ -745,14 +763,36 @@ const asyncMain = async nightmare => {
    
     if(config.amex.notify_advertisements) { 
         let htmlmsg = "<h2> Summary of all current offer-advertisements</h2>";
+        var filter_regex;
+        var filter_count = 0;
+        if(config.amex.filter_advertisements) {
+            filter_regex = new RegExp(config.amex.filter_advertisements.join("|"), "i");
+        }
         for( var card in adsdata ) {
             htmlmsg += "<b>" + card + "</b><br>";
             let adslist = adsdata[card];
             if(Array.isArray(adsdata[card])) {
                 for(let i=0; i< adslist.length; i++) {
-                    htmlmsg += adslist[i] + "<br>";
+                    let skip = false;
+                    if(config.amex.filter_advertisements) {
+                        if(filter_regex.test(adslist[i])) {
+                            console.log("Skipping advertisement because it matched the filter_regex");
+                            console.log(adslist[i]);
+                            skip = true;
+                            filter_count++;
+                        } else {
+                            console.log("Allowing advertisement because it did not match the filter_regex");
+                            console.log(adslist[i]);
+                        }
+                    }
+                    if(!skip) {
+                        htmlmsg += adslist[i] + "<br>";
+                    }
                 }
             }
+        }
+        if(filter_count > 0) {
+        htmlmsg += "<i>Filtered " + filter_count + " hidden advertisements because they matched your filter list.</i><br>"
         }
         notify_message += htmlmsg;
     }

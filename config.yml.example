@@ -13,6 +13,33 @@ amex:
     notify_offer_limit_warning: true
     notify_advertisements: true
 
+#    filter_offers:
+#        - hugo boss
+#        - jo malone
+#        - hair care
+#        - pinterest
+
+#    filter_advertisements: 
+#        - shoprunner
+#        - refer your friend
+#        - upgrade with points
+#        - points with paypal
+#        - lowest hotel rates guaranteed
+#        - exclusive cruise offers
+#        - turn points into travel
+#        - find card member favorites
+#        - more places to use your card
+#        - let us monitor what matters
+#        - use the savings calculator
+#        - started accepting american express
+#        - they spend, you control
+#        - your loan offer is waiting
+#        - support small businesses that welcome your card
+#        - flexible vendor payments
+#        - streamline expense management
+#        - simplify expense management
+#        - refer your bonvoy
+
 email:
     to: <your_real_email@foo.com> 
     from_address: <your_sender_email_account@mail.com>
