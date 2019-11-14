@@ -9,6 +9,9 @@ amex:
     notify_enrolled_expiry_days: 7
     notify_all_eligible: false
     notify_all_enrolled: false
+    notify_summary_table: false
+    notify_offer_limit_warning: true
+    notify_advertisements: true
 
 email:
     to: <your_real_email@foo.com> 

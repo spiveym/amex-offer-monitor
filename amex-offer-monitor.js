@@ -34,6 +34,7 @@ var resultfile = path.resolve(__dirname, 'amexoffers-result.html');
 var leaveopen = false;
 var slowmo = true;
 var slowmo_factor = 1;
+var offer_warnings = "";
 
 //debug vars
 var debug_fake_data = false; //skips the amex lookup, loads a fake table instead to not pound their server
@@ -74,6 +75,9 @@ process.argv.forEach((arg, i, argv) => {
             break;
         case '--leaveopen':
             leaveopen = true;
+            break;
+        case '--noslow':
+            slowmo = false;
             break;
     }
 });
@@ -141,7 +145,7 @@ const getRandomWait = () => {
     var max = Math.floor(30000*slowmo_factor);
     var wait = Math.floor(Math.random() * (max - min)) + min; //The maximum is exclusive and the minimum is inclusive
     var wait_seconds = wait/1000;
-    console.log('Sleeping for ' + wait_seconds + ' seconds for slowmo');
+    console.log('Sleeping for ' + wait_seconds + ' seconds for slowdown');
     return wait;
   } else {
     return 0;
@@ -280,7 +284,7 @@ const chooseCard = async (nightmare, cardId) => {
 }
 
 
-const getOffers = async nightmare => {
+const getOffers = async (nightmare,cardname) => {
   console.log('Now getting offers');
   logger.info('Now getting offers');
 
@@ -290,11 +294,27 @@ const getOffers = async nightmare => {
 
   try {
     //eligible offers
-    const eligible_result = await nightmare
+    await nightmare
       .wait('a[href="/offers/eligible"]')
       .click('a[href="/offers/eligible"]')
       .wait('section[class="offers-list"]')
       .wait(1000)
+    const available_count = await nightmare
+      .evaluate(() => {
+         let count = document.querySelector('a[href="/offers/eligible"]').innerText;
+         return count;
+      });
+    console.log("Available offers: " + available_count.trim());
+    logger.debug("Available offers: " + available_count.trim()); 
+    if(config.amex.notify_offer_limit_warning) {
+        if(available_count.trim() == "Available (100)") {
+            logger.debug("Available offers: added warning message");
+            offer_warnings += "Warning: " + cardname + " has reached the cap of 100 available offers. Some offers may be hidden. Reduce the number of available offers by adding to card to see additional offers.<br>\n";
+        } else {
+            logger.debug("available_count was not equal to Available (100)");
+        }
+    }
+    const eligible_result = await nightmare
       .evaluate(() => {
          let offers = [...document.querySelectorAll('div[class^="offer-info offer-column"]')]
            .map(el => el.innerText);
@@ -314,6 +334,25 @@ const getOffers = async nightmare => {
       for(let i =0; i< eligible_result[0].length; i++) {
         transpose_result.push([eligible_result[0][i], eligible_result[1][i], 'eligible']);
       }
+
+    //advertisements
+    //example
+    //<div class="offer-info col-md-7 pad-2-r"><h1 class="heading-3 margin-0 dls-accent-gray-06">Lowest Hotel Rates Guaranteed</h1><p class="body-1 margin-0 margin-b-md-down dls-accent-gray-05">Before you book anywhere else, check Amextravel.com. If you find a lower prepaid hotel rate online, American Express Travel will match it. Terms apply.</p></div>
+    //example
+    //<div class="offer-info col-md-7 pad-2-r"><h1 class="heading-3 margin-0 dls-accent-gray-06">Refer American Express</h1><p class="body-1 margin-0 margin-b-md-down dls-accent-gray-05">The power of American Express is yours to share. Refer your friends, and they can explore Cards. You can earn 10,000 points per approved referral. Points limit and terms apply.</p></div>
+    const advertisements_result = await nightmare
+      .evaluate(() => {
+         let ads = [...document.querySelectorAll('div[class^="offer-info col-md-7"]')]
+           .map(el => el.innerText);
+         return ads;
+      });
+      console.dir(advertisements_result);
+      logger.debug(advertisements_result);
+      await nightmare.wait(2000);
+      await nightmare.wait(getRandomWait());
+
+    //end advertisements
+
 
     //enrolled offers
     const enrolled_result = await nightmare
@@ -340,7 +379,7 @@ const getOffers = async nightmare => {
         transpose_result.push([enrolled_result[0][i], enrolled_result[1][i], 'enrolled']);
       }
 
-      return transpose_result;
+      return [transpose_result, advertisements_result];
 
   } catch(e) {
     console.error(e);
@@ -466,6 +505,7 @@ const asyncMain = async nightmare => {
     }
 
     var newdata = {};
+    var adsdata = {};
     if(debug_fake_data) {
         newdata = JSON.parse(fs.readFileSync(fakedatafile));
     } else {
@@ -475,8 +515,9 @@ const asyncMain = async nightmare => {
                 if(debug_max_cards >= 0) { cardcount = debug_max_cards; }
                 let card = await chooseCard(nightmare,i);
                 if(card.includes('Canceled')) { continue; }
-                let offers = await getOffers(nightmare);
+                let [offers, ads_onecard] = await getOffers(nightmare, card);
                 newdata[card] = offers;
+                adsdata[card] = ads_onecard;
                 await gotoMain(nightmare);
             }
         } catch(e) {
@@ -579,6 +620,10 @@ const asyncMain = async nightmare => {
 
     var send_message = false;
     var notify_message = "<html><body>"
+
+    if(offer_warnings) { 
+        notify_message += offer_warnings;
+    }
 
     if(cardsadded.length > 0) {
         notify_message += "<h2>New Cards Found:</h2> <br>";
@@ -697,8 +742,21 @@ const asyncMain = async nightmare => {
             notify_message += any_offers ? htmlmsg : "";
         }
     }
-
-
+   
+    if(config.amex.notify_advertisements) { 
+        let htmlmsg = "<h2> Summary of all current offer-advertisements</h2>";
+        for( var card in adsdata ) {
+            htmlmsg += "<b>" + card + "</b><br>";
+            let adslist = adsdata[card];
+            if(Array.isArray(adsdata[card])) {
+                for(let i=0; i< adslist.length; i++) {
+                    htmlmsg += adslist[i] + "<br>";
+                }
+            }
+        }
+        notify_message += htmlmsg;
+    }
+            
 
     notify_message += "</body></html>";
 
