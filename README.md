@@ -32,7 +32,12 @@
 
 ## Other notes
 
-Occasionally on login amex will throw an extra security page prompting for the last 4 of your SSN. Currently experimenting with a solution to workaround this, but it may not happen often enough to big deal unless you are hammering them running the script over and over. 
+Occasionally on login, amex will throw an extra security page asking for the last 4 of your SSN. This seems to only happen if you try to login very frequently or regularly. If it happens to you and you want to allow the tool to continue, you can add an amex:l4s key to the config file with the last 4 digits of your SSN. I understand this is sensitive and some people may not be comfortable providing that information, so it's optional. If you don't provide it the tool will just exit when this page is encountered. Recommend not enabling it unless this prompt becomes a persistent problem for you. 
 
 ### Multiple Accounts ###
 If you want to handle multiple amex accounts, you can create a separate config file for each account. Add a amex:historyfile key to each config file indicating a filename in the directory that you want to use for each account. You may also customize the email subject with a email:subject key. This should allow you to run the program for multiple accounts without thrashing the data between the two. To run with a config file other than the default config.yml, launch `node amex-offer-monitor.js --config mycustomconfigfile.yml`
+
+
+## Example Output
+
+![example output](https://raw.githubusercontent.com/karwosts/amex-offer-monitor/master/example_output.PNG)
