@@ -36,3 +36,8 @@ Occasionally on login, amex will throw an extra security page asking for the las
 
 ### Multiple Accounts ###
 If you want to handle multiple amex accounts, you can create a separate config file for each account. Add a amex:historyfile key to each config file indicating a filename in the directory that you want to use for each account. You may also customize the email subject with a email:subject key. This should allow you to run the program for multiple accounts without thrashing the data between the two. To run with a config file other than the default config.yml, launch `node amex-offer-monitor.js --config mycustomconfigfile.yml`
+
+
+## Example Output
+
+![example output](https://raw.githubusercontent.com/karwosts/amex-offer-monitor/master/example_output.PNG)
