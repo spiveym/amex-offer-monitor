@@ -33,6 +33,9 @@
 
 * notify\_advertisements : Print a list in the email of all "advertisements" which are populated in the offer section. These are advertisements, usually from Amex, which aren't considered traditional "Buy X get Y" amex offers. Things like upgrade offers, referral offers, 0% offers, etc may appear here. Also has a lot of less useful things like ads for shoprunner, credit monitoring, etc. Printed in a separate list at the end of the email.
 
+* filter\_offers: A list of strings indicating offers or merchants you are not interested in. If the text of an amex offer matches any of the strings listed here, it will be hidden from the result email. See the example config file for examples.
+
+* filter\_advertisements: A list of strings indicating advertisements you are not interested in. If the text of an advertisement matches any of the strings listed here, it will be hidden from the result email. See the example config file for examples.
 
 ## Other notes
 
