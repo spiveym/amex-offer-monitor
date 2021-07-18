@@ -18,7 +18,9 @@ const sprintf = require('sprintf-js').sprintf;
 // Variable Initialization
 ///////////////////////////////////////////////////////////////////////////////
 
-const START = "https://online.americanexpress.com/myca/logon/us/action/LogonHandler?request_type=LogonHandler&Face=en_US&DestPage=https%3A%2F%2Fonline.americanexpress.com%2Fmyca%2Faccountsummary%2Fus%2Faccounthome%3Frequest_type%3Dauthreg_acctAccountSummary%26sorted_index%3D0%26inav%3Dmenu_myacct_acctsum";
+//Old address, now goes to "Page Not Found"
+//const START = "https://online.americanexpress.com/myca/logon/us/action/LogonHandler?request_type=LogonHandler&Face=en_US&DestPage=https%3A%2F%2Fonline.americanexpress.com%2Fmyca%2Faccountsummary%2Fus%2Faccounthome%3Frequest_type%3Dauthreg_acctAccountSummary%26sorted_index%3D0%26inav%3Dmenu_myacct_acctsum";
+const START = "https://online.americanexpress.com/myca/logon/us/action/LogonHandler?request_type=LogonHandler&Face=en_US";
 
 var config;
 var arg_username;
